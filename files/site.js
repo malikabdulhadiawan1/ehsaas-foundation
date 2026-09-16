@@ -191,7 +191,7 @@
       { url: "projects.html", title: "Projects", summary: "Ehsaas Foundation projects and community work" },
       { url: "flood-assistance-2010.html", title: "Flood Assistance 2010", summary: "Flood relief, medical kits and aid distribution" },
       { url: "how-to-donate.html", title: "How to Donate", summary: "Donation and bank transfer instructions" },
-      { url: "contact-us.html", title: "Contact Us", summary: "School location and feedback form" }
+      { url: "contact-us.html", title: "Contact Us", summary: "School location and contact form" }
     ];
     var form = document.createElement("form");
     form.className = "ef-search";
@@ -316,28 +316,17 @@
   }
 
   function repairContactForm() {
-    var form = document.querySelector("#form-963451382294170120");
+    var form = document.querySelector("#contact-form");
     if (!form) return;
-    var hiddenSubmit = form.querySelector('input[type="submit"]');
-    if (hiddenSubmit) hiddenSubmit.style.display = "none";
-    var oldButton = form.querySelector(".wsite-button");
-    if (!oldButton) return;
-    oldButton.setAttribute("role", "button");
-    oldButton.setAttribute("tabindex", "0");
-    var submit = function () {
-      var required = Array.prototype.slice.call(form.querySelectorAll("[aria-required='true']"));
-      var missing = required.find(function (field) { return !field.value.trim(); });
-      if (missing) { missing.focus(); missing.reportValidity && missing.reportValidity(); return; }
-      var status = form.querySelector(".ef-form-status") || document.createElement("div");
-      status.className = "ef-form-status";
-      status.innerHTML = 'Thank you. The old Weebly form service is no longer connected. Please send this message through the <a href="https://facebook.com/Ehsaasfoundationschoolgolrasharif" target="_blank" rel="noopener">Ehsaas Foundation Facebook page</a>.';
-      form.appendChild(status);
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      if (!form.reportValidity()) return;
+      var honeypot = form.querySelector("[name='website']");
+      if (honeypot && honeypot.value) return;
+      var status = form.querySelector(".ef-form-status");
+      status.hidden = false;
+      status.textContent = "Email delivery will be activated when the website mailbox is connected.";
       status.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    };
-    form.addEventListener("submit", function (event) { event.preventDefault(); submit(); });
-    oldButton.addEventListener("click", submit);
-    oldButton.addEventListener("keydown", function (event) {
-      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); submit(); }
     });
   }
 
