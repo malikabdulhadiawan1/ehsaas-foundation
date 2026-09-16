@@ -7,6 +7,12 @@
     return uploadRoot + String(url || "").replace(/^\/+/, "");
   }
 
+  function highResolutionImagePath(url) {
+    var source = String(url || "");
+    if (/_orig\.[a-z0-9]+(?:[?#].*)?$/i.test(source)) return imagePath(source);
+    return imagePath(source.replace(/(\.[a-z0-9]+)([?#].*)?$/i, "_orig$1$2"));
+  }
+
   function renderSlideshow(config) {
     var host = document.getElementById(config.elementID + "-slideshow");
     if (!host || !config.images || !config.images.length) return;
@@ -20,6 +26,11 @@
     stage.className = "ef-slide-stage";
     var main = document.createElement("img");
     main.alt = "Photo 1 of " + config.images.length;
+    main.addEventListener("error", function () {
+      var fallback = main.getAttribute("data-fallback");
+      if (!fallback || main.getAttribute("src") === fallback) return;
+      main.setAttribute("src", fallback);
+    });
     stage.appendChild(main);
 
     function button(label, className, symbol) {
@@ -38,6 +49,18 @@
     thumbs.setAttribute("aria-label", "Choose a photo");
     var counter = document.createElement("div");
     counter.className = "ef-counter";
+    var tools = document.createElement("div");
+    tools.className = "ef-slide-tools";
+    var pause = document.createElement("button");
+    pause.type = "button";
+    pause.className = "ef-slide-tool ef-pause";
+    var expand = document.createElement("button");
+    expand.type = "button";
+    expand.className = "ef-slide-tool ef-expand";
+    expand.textContent = "⛶ Expand";
+    expand.setAttribute("aria-label", "View slideshow full screen");
+    tools.appendChild(pause);
+    tools.appendChild(expand);
 
     var thumbButtons = config.images.map(function (item, index) {
       var thumb = document.createElement("button");
@@ -56,7 +79,9 @@
 
     function show(index, revealThumbnail) {
       current = (index + config.images.length) % config.images.length;
-      main.src = imagePath(config.images[current].url);
+      var source = config.images[current].url;
+      main.setAttribute("data-fallback", imagePath(source));
+      main.src = highResolutionImagePath(source);
       main.alt = "Photo " + (current + 1) + " of " + config.images.length;
       counter.textContent = (current + 1) + " / " + config.images.length;
       thumbButtons.forEach(function (thumb, i) {
@@ -76,15 +101,47 @@
     root.appendChild(stage);
     root.appendChild(previous);
     root.appendChild(next);
+    root.appendChild(tools);
     root.appendChild(thumbs);
     root.appendChild(counter);
     host.replaceChildren(root);
     show(0);
 
-    if (String(config.autoplay) === "1" && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      var timer = window.setInterval(function () { show(current + 1, false); }, Math.max(3, Number(config.speed) || 5) * 1000);
-      root.addEventListener("mouseenter", function () { window.clearInterval(timer); }, { once: true });
+    var timer = null;
+    var playing = String(config.autoplay) === "1" && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    function updatePauseButton() {
+      pause.textContent = playing ? "❚❚ Pause" : "▶ Play";
+      pause.setAttribute("aria-label", playing ? "Pause slideshow" : "Play slideshow");
     }
+    function stopAutoplay() {
+      if (timer) window.clearInterval(timer);
+      timer = null;
+    }
+    function startAutoplay() {
+      stopAutoplay();
+      timer = window.setInterval(function () { show(current + 1, false); }, Math.max(3, Number(config.speed) || 5) * 1000);
+    }
+    pause.addEventListener("click", function () {
+      playing = !playing;
+      if (playing) startAutoplay(); else stopAutoplay();
+      updatePauseButton();
+    });
+    expand.addEventListener("click", function () {
+      if (document.fullscreenElement === root) {
+        document.exitFullscreen();
+      } else if (root.requestFullscreen) {
+        root.requestFullscreen();
+      } else {
+        window.open(main.src, "_blank", "noopener,noreferrer");
+      }
+    });
+    document.addEventListener("fullscreenchange", function () {
+      var active = document.fullscreenElement === root;
+      expand.textContent = active ? "✕ Exit" : "⛶ Expand";
+      expand.setAttribute("aria-label", active ? "Exit full screen" : "View slideshow full screen");
+    });
+    updatePauseButton();
+    if (playing) startAutoplay();
   }
 
   function recoverSlideshows() {
